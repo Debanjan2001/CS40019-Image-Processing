@@ -20,8 +20,8 @@ def custom_adaptive_threshold(image, block_size, constant):
 image = cv2.imread('poly.jpg', cv2.IMREAD_GRAYSCALE)
 
 # Define block size and constant (adjust as needed)
-block_size = 6
-constant = 16
+block_size = 3
+constant = 132
 
 # Apply custom adaptive thresholding
 binary_image_custom = custom_adaptive_threshold(image, block_size, constant)
@@ -40,58 +40,14 @@ def find_contour(binary_image):
                 contour.append((i, j))
     return contour
 
-# def calculate_distance(point1, point2):
-#     sq = lambda x: x*x
-#     return (sq(point1[0] - point2[0]) + sq(point1[1] - point2[1]))
-
-# def find_next_point(current_point, contour):
-#     min_distance = float('inf')
-#     next_point = None
-#     for point in contour:
-#         distance = calculate_distance(current_point, point)
-#         if distance < min_distance:
-#             min_distance = distance
-#             next_point = point
-#     return next_point
-
-# def minimum_perimeter_polygon(image):
-#     binary_image = image.copy()
-#     # binary_image[np.where((image==255))] = 0
-#     # binary_image[np.where((image==0))] = 255
-#     contour = find_contour(binary_image)
-#     start_point = min(contour, key=lambda x: x[0] + x[1])  # Start from the point with lowest sum of coordinates
-
-#     mpp = [start_point]
-#     print(start_point, len(contour))
-#     current_point = start_point
-
-#     while len(contour) > 1:
-#         print(len(contour))
-#         contour.remove(current_point)
-#         next_point = find_next_point(current_point, contour)
-#         if next_point == start_point:
-#             break
-#         mpp.append(next_point)
-#         current_point = next_point
-
-#     return mpp
-
-
 # plt.imshow(binary_image_custom, cmap='gray')
 plt.imsave('poly_image.jpg', binary_image_custom, cmap='gray')
 # plt.show()
 
 
-# print(binary_image_custom)
-
 def draw_mpp(image, mpp):
     mpp = np.array(mpp)
     cv2.polylines(image, [mpp], isClosed=True, color=(0, 255, 0), thickness=1)
-
-# mpp = minimum_perimeter_polygon(binary_image_custom)
-
-# Draw MPP on the image
-# draw_mpp(image, mpp)
 
 # output_path = 'poly_image.jpg'
 # cv2.imwrite(output_path, image)
@@ -111,92 +67,105 @@ def create_polygon(points):
 
     def get_slope(p1, p2):
         if p1[0] == p2[0]:
-            return float('inf')
+            if(p1[1] > p2[1]):
+                return float('inf')
+            else:
+                return float('-inf')
         else:
             return 1.0*(p1[1]-p2[1])/(p1[0]-p2[0])
 
-    points.sort(key=lambda p: (get_slope(p, start), -p[1],p[0]))
-
+    points.sort(key=lambda p: (p[0],p[1]))
+    down_pts = []
+    up_pts = []
+    for pt in points:
+        slope = get_slope(pt, start)
+        if slope >= 0:
+            up_pts.append(pt)
+        else:
+            down_pts.append(pt)
+    
+    temp_points = [start]
+    temp_points.extend(down_pts)
+    up_pts.sort(key=lambda p: (p[0],-p[1]), reverse=True)
+    temp_points.extend(up_pts)
+    # print(temp_points)
+    points = temp_points
+    
+    # points.sort(key=lambda p: (get_slope(p, start), p[0],p[1]))
 
     def get_cross_product(p1,p2,p3):
-        return ((p2[0] - p1[0])*(p3[1] - p1[1])) - ((p2[1] - p1[1])*(p3[0] - p1[0]))
-
+        # return ((p2[0] - p1[0])*(p3[1] - p1[1])) - ((p2[1] - p1[1])*(p3[0] - p1[0]))
+        return (p3[0]-p2[0])*(p1[1]-p2[1]) - (p3[1]-p2[1])*(p1[0]-p2[0])
     hull.append(start)
+
+    isConvex = [True for i in range(len(points))]
+    for i in range(len(points)):
+        if get_cross_product(points[i-1], points[i], points[(i+1)%len(points)]) < 0:
+            isConvex[i] = False
+        else:
+            isConvex[i] = True
+        print(points[i], isConvex[i])
+
+    wc=0
+    bc=0
+    vl=0
+    vk=0
+    n = len(points)
+    indices = set()
+    while(vk<n):
+        sgn1 = get_cross_product(points[vl], points[wc], points[vk])
+        sgn2 = get_cross_product(points[vl], points[bc], points[vk])
+        if(sgn1 > 0):
+            vl = wc
+            wc = vl
+            bc = vl
+            vk = vl+1
+        elif(sgn1 <= 0 and sgn2>=0):
+            if(isConvex[vk]):
+                wc = vk
+            else:
+                bc = vk
+            vk = vk+1
+        elif(sgn2<0):
+            vl = bc
+            wc=vl
+            bc = vl
+            vk = vl+1
+        print(vl)
+        indices.add(vl)
+
+    print(len(indices))
     for p in points:
         hull.append(p)
         while len(hull) > 2 and get_cross_product(hull[-3],hull[-2],hull[-1]) < 0:
             hull.pop(-2)
 
-    return hull
+    # return hull
+    return [points[i] for i in sorted(list(indices))]
 
 
-def find_hull2(points):
-    def leftmost(points):
-        minim = 0
-        for i in range(1,len(points)):
-            if points[i][0] < points[minim][0]:
-                minim = i
-            elif points[i][0] == points[minim][0]:
-                if points[i][1] > points[minim][1]:
-                    minim = i
-        return minim
-    
-    def det(p1, p2, p3):
-        """ 
-        > 0: CCW turn
-        < 0 CW turn
-        = 0: colinear
-        """
-        return (p2[0] - p1[0]) * (p3[1] - p1[1]) \
-            -(p2[1] - p1[1]) * (p3[0] - p1[0])
-    
-    hull = []
-    l = leftmost(points)
-    leftMost = points[l]
-    currentVertex = leftMost
-    hull.append(currentVertex)
-    nextVertex = points[1]
-    index = 2
-    nextIndex = -1
-    while True:
-        c0 = currentVertex
-        c1 = nextVertex
+points = [[1,4],[2,3],[2,5],[3,6],[3,2],[4,9],[4,-5],[5,5], [5,9]]
+# hull = create_polygon(points)
+# print(hull)
 
-        checking = points[index]
-        c2 = checking
 
-        crossProduct = det(currentVertex, nextVertex, checking)
-        if crossProduct < 0:
-            nextVertex = checking
-            nextIndex = index
-        index += 1
-        if index == len(points):
-            if nextVertex == leftMost:
-                break
-            index = 0
-            hull.append(nextVertex)
-            currentVertex = nextVertex
-            nextVertex = leftMost
-
-    return hull
-
+# # ----------------------------
 contours = find_contour(binary_image_custom)
-
+# contours = points
 hull = create_polygon(contours)
-# hull = find_hull2(contours)
 print(hull)
 
-temp_image = np.ones_like(image) * 255
+temp_image = np.ones_like(binary_image_custom) * 255
+temp_image = binary_image_custom.copy()
 temp_image = image.copy()
 # for pt in contours:
     # temp_image[pt[0], pt[1]] = 0
 
-hull.reverse()
+# hull.reverse()
 
 # for point in hull:
-#     cv2.circle(temp_image, point, 1, (0, 0), -1)
+    # cv2.circle(temp_image, point, 2, (0, 0), -1)
 
-# np.rot90(temp_image, 3)
 draw_mpp(temp_image, hull)
 
 # # Display the image
