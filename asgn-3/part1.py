@@ -23,6 +23,12 @@ class Part1Processor:
                 result[i, j] = np.mean(image[i-offset:i+offset+1, j-offset:j+offset+1])
         
         return result
+    
+    def add_gaussian_noise(self, image, variance):
+        noise = np.random.normal(0, variance, image.shape).astype(np.uint8)
+        noisy_image = np.clip(image + noise, 0, 255)
+        return noisy_image
+
 
 
 def main():
@@ -30,13 +36,20 @@ def main():
     part1Solver = Part1Processor()
     gray_image = part1Solver.read_image(image_path)
 
-    kernel_size = 19
+    kernel_size = 15
     # Apply the low-pass filter
     blurred_image = part1Solver.apply_low_pass_filter(gray_image, kernel_size)
-
     cv2.imshow('Image', blurred_image)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
+
+    # Add Gaussian noise
+    variance = 100
+    noisy_image = part1Solver.add_gaussian_noise(blurred_image, variance)
+    cv2.imshow('Image', noisy_image)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
 
 if __name__ == '__main__':
     main()
