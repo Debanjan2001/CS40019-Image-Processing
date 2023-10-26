@@ -1,13 +1,25 @@
 import cv2
 import numpy as np
 
+
 class Part2Processor:
 
     def __init__(self) -> None:
-        pass
+        self.dx = [-1, +1, 0, 0]
+        self.dy = [0, 0, -1, +1]
+        self.colors = [
+            (255, 0, 0),
+            (0, 255, 0),
+            (0, 0, 255),
+            (255, 255, 0),
+            (255, 0, 255),
+            (0, 255, 255),
+            (255, 255, 255),
+        ]
 
     def read_image(self, img_path):
         self.image_path = img_path
+        self.rgb_image = cv2.imread(self.image_path)
         self.gray_image = cv2.imread(self.image_path, cv2.IMREAD_GRAYSCALE)
         return self.gray_image
     
@@ -35,64 +47,85 @@ class Part2Processor:
 
         final_img = image.copy()
         print(final_thresh)
-        final_thresh=230
-        final_img[image > final_thresh] = 255
-        final_img[image < final_thresh] = 0
+        # Some approximation done here
+        final_img[image > final_thresh/3] = 255
+        final_img[image <= final_thresh/3] = 0
         return final_img
     
-    def otsu2(self, image):
-        # Compute histogram
-        hist, bins = np.histogram(image.flatten(), bins=256, range=(0,256))
+    def perform_bfs(self, img, sx, sy, vis):
+        vis[(sx,sy)]=True;
+        queue = [(sx, sy)]
+        component = []
+        h, w = img.shape[0], img.shape[1]
+        def inside(x, y):
+            return x<h and x>=0 and y<w and y>=0
+        
+        while len(queue) > 0:
+            x,y = queue.pop(0)
+            for i in range(len(self.dx)):
+                nx = x+self.dx[i]
+                ny = y+self.dy[i]
+                component.append((x,y))
+                if (nx,ny) in vis:
+                    continue
+                if not inside(nx, ny):
+                    continue
+                if img[nx][ny] != img[x][y]:
+                    continue 
+                vis[(nx,ny)] = True
+                queue.append((nx,ny))
+        return component
+    
+    def apply_connected_component_labelling(self, binary_image):
+        image = binary_image.copy()
+        image = image // 255
+        h, w = image.shape
+        # print(h,w)
+        components = []
+        vis = dict()
+        for i in range(h):
+            for j in range(w):
+                if image[i][j] == 0:
+                    continue
+                if (i, j) in vis:
+                    continue
+                vis[(i,j)]=True
+                comp = self.perform_bfs(image, i, j, vis)
+                components.append(comp)
 
-        # Normalize histogram
-        hist = hist / hist.sum()
+        print(len(components))
+        return components
+    
+    def apply_color_and_show(self, components):
+        for i, c in enumerate(components):
+            col = self.colors[i % len(self.colors)]
+            for (x,y) in c:
+                self.rgb_image[x][y] = col
 
-        # Initialization
-        max_variance = 0
-        threshold = 0
-
-        for t in range(256):
-            # Class probabilities
-            w0 = hist[:t+1].sum()
-            w1 = 1 - w0
-
-            if w0 == 0 or w1 == 0:
-                continue
-
-            # Class means
-            u0 = (np.arange(t+1) * hist[:t+1]).sum() / w0
-            u1 = (np.arange(t+1, 256) * hist[t+1:]).sum() / w1
-
-            # Class variances
-            var = w0 * w1 * ((u0 - u1) ** 2)
-
-            if abs(var - max_variance) <= 210:
-                max_variance = max(max_variance, var)
-                threshold = t
-
-        # Apply threshold
-        print(threshold)
-        thresholded = image.copy()
-        thresholded[image > threshold] = 255
-        thresholded[image <= threshold] = 0
-        return thresholded
+        cv2.imshow('Final Image', self.rgb_image)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
     
 def main():
-    image_path = 'connect.png'
+    image_path = 'connect.jpg'
     part2Solver = Part2Processor()
     gray_image = part2Solver.read_image(image_path)
-    print(gray_image)    
+    # print(gray_image)    
 
     # cv2.imshow('Real Image', gray_image)
     # cv2.waitKey(0)
     # cv2.destroyAllWindows()
 
-    # otsu_image = part2Solver.apply_otsu_thresholding(gray_image)
-    otsu_image = part2Solver.otsu2(gray_image)
+    otsu_image = part2Solver.apply_otsu_thresholding(gray_image)
     cv2.imshow('Otsu Image', otsu_image)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
+
+    components = part2Solver.apply_connected_component_labelling(otsu_image)
+
+    part2Solver.apply_color_and_show(components)
+
 
 if __name__ == '__main__':
     main()
