@@ -9,12 +9,15 @@ class Part2Processor:
         self.dy = [0, 0, -1, +1]
         self.colors = [
             (255, 0, 0),
+            (255, 255, 0),
             (0, 255, 0),
             (0, 0, 255),
-            (255, 255, 0),
             (255, 0, 255),
             (0, 255, 255),
-            (255, 255, 255),
+            (128, 128, 0),
+            (128, 0, 128),
+            (0, 128, 128),
+            (128, 128, 128),
         ]
 
     def read_image(self, img_path):
@@ -45,8 +48,8 @@ class Part2Processor:
 
         final_img = image.copy()
         # print(final_thresh)
-        final_img[image > final_thresh/3] = 255
-        final_img[image <= final_thresh/3] = 0
+        final_img[image > final_thresh/2.2] = 255
+        final_img[image <= final_thresh/2.2] = 0
         print("[Finished] Otsu Thresholding.")
         return final_img
     
