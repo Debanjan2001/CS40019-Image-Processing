@@ -32,15 +32,22 @@ class Part1Processor:
         print("[Finished] Adding noise to image.")
         return noisy_image
     
+    def normalize(self, img):
+        image = img.copy()
+        image -= np.min(image)
+        image /= np.max(image)
+        image *= 255
+        return image.astype(np.uint8)
+    
     def wiener_filter(self, img, kernel, var):
         print("[Started] Applying Wiener filter to image...")
-        kernel /= np.sum(kernel)
         dummy = np.copy(img)
         dummy = np.fft.fft2(dummy)
         kernel = np.fft.fft2(kernel, s = img.shape)
         kernel = np.conj(kernel) / (np.abs(kernel) ** 2 + var)
         dummy = dummy * kernel
         dummy = np.abs(np.fft.ifft2(dummy))
+        dummy = self.normalize(dummy)
         print("[Finished] Applying Wiener filter to image.")
         return dummy
 
@@ -75,7 +82,7 @@ def main():
     noisy_image = part1Solver.add_gaussian_noise(blurred_image, noise_variance)
     plt.imsave('part1_noisy_image.jpg', noisy_image, cmap='gray')
 
-    kernel = part1Solver.gaussian_kernel(3, 10)
+    kernel = part1Solver.gaussian_kernel(4, 10)
     restored_image = part1Solver.wiener_filter(noisy_image, kernel, noise_variance)
     plt.imsave('part1_restored_image.jpg', restored_image, cmap='gray')
     
