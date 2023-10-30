@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-
+import matplotlib.pyplot as plt
 
 class Part2Processor:
 
@@ -24,6 +24,7 @@ class Part2Processor:
         return self.gray_image
     
     def apply_otsu_thresholding(self, image):
+        print("[Started] Otsu Thresholding...")
         pixel_number = image.shape[0] * image.shape[1]
         mean_weigth = 1.0/pixel_number
         his, bins = np.histogram(image.flatten(), bins=np.array(range(0, 256)), range=(0, 256))
@@ -38,18 +39,15 @@ class Part2Processor:
 
             value = Wb * Wf * ((mub - muf) ** 2)
 
-            # print("Wb", Wb, "Wf", Wf)
-            # print("t", t, "value", value)
-
             if value >= final_value:
                 final_thresh = t
                 final_value = value
 
         final_img = image.copy()
-        print(final_thresh)
-        # Some approximation done here
+        # print(final_thresh)
         final_img[image > final_thresh/3] = 255
         final_img[image <= final_thresh/3] = 0
+        print("[Finished] Otsu Thresholding.")
         return final_img
     
     def perform_bfs(self, img, sx, sy, vis):
@@ -77,6 +75,7 @@ class Part2Processor:
         return component
     
     def apply_connected_component_labelling(self, binary_image):
+        print("[Started] Connected Component Labelling...")
         image = binary_image.copy()
         image = image // 255
         h, w = image.shape
@@ -93,38 +92,29 @@ class Part2Processor:
                 comp = self.perform_bfs(image, i, j, vis)
                 components.append(comp)
 
-        print(len(components))
+        # print(len(components))
+        print("[Finished] Connected Component Labelling.")
         return components
     
-    def apply_color_and_show(self, components):
+    def apply_color_and_save(self, components):
         for i, c in enumerate(components):
             col = self.colors[i % len(self.colors)]
             for (x,y) in c:
                 self.rgb_image[x][y] = col
 
-        cv2.imshow('Final Image', self.rgb_image)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+        plt.imsave('part2_labelled_image.jpg', self.rgb_image)
 
     
 def main():
     image_path = 'connect.jpg'
     part2Solver = Part2Processor()
     gray_image = part2Solver.read_image(image_path)
-    # print(gray_image)    
-
-    # cv2.imshow('Real Image', gray_image)
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
 
     otsu_image = part2Solver.apply_otsu_thresholding(gray_image)
-    cv2.imshow('Otsu Image', otsu_image)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    plt.imsave('part2_otsu_image.jpg', otsu_image, cmap='gray')
 
     components = part2Solver.apply_connected_component_labelling(otsu_image)
-
-    part2Solver.apply_color_and_show(components)
+    part2Solver.apply_color_and_save(components)
 
 
 if __name__ == '__main__':
